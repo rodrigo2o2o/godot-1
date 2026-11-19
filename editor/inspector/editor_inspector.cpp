@@ -1187,9 +1187,11 @@ void EditorProperty::gui_input(const Ref<InputEvent> &p_event) {
 
 		if (keying_rect.has_point(mpos)) {
 			accept_event();
-			emit_signal(SNAME("property_keyed"), property, use_keying_next());
+			bool is_frame_prop = (property == "frame" || property == "frame_coords");
+			bool advance_timeline = use_keying_next() || is_frame_prop;
+			emit_signal(SNAME("property_keyed"), property, advance_timeline);
 
-			if (use_keying_next()) {
+			if (use_keying_next() || is_frame_prop) {
 				if (property == "frame_coords" && (object->is_class("Sprite2D") || object->is_class("Sprite3D"))) {
 					Vector2i new_coords = object->get(property);
 					new_coords.x++;
@@ -1201,8 +1203,22 @@ void EditorProperty::gui_input(const Ref<InputEvent> &p_event) {
 						callable_mp(this, &EditorProperty::emit_changed).call_deferred(property, new_coords, "", false);
 					}
 				} else {
-					if (int64_t(object->get(property)) + 1 < (int64_t(object->get("hframes")) * int64_t(object->get("vframes")))) {
-						callable_mp(this, &EditorProperty::emit_changed).call_deferred(property, object->get(property).operator int64_t() + 1, "", false);
+					int64_t max_frames = 0;
+					if (object->has_method("get_hframes") && object->has_method("get_vframes")) {
+						max_frames = int64_t(object->get("hframes")) * int64_t(object->get("vframes"));
+					} else if (object->has_method("get_sprite_frames")) {
+						Ref<Resource> sf = object->get("sprite_frames");
+						if (sf.is_valid()) {
+							String anim = object->get("animation");
+							if (sf->has_method("get_frame_count")) {
+								max_frames = sf->call("get_frame_count", anim);
+							}
+						}
+					}
+
+					int64_t cur_val = object->get(property).operator int64_t();
+					if (max_frames <= 0 || cur_val + 1 < max_frames) {
+						callable_mp(this, &EditorProperty::emit_changed).call_deferred(property, cur_val + 1, "", false);
 					}
 				}
 				callable_mp(this, &EditorProperty::update_property).call_deferred();

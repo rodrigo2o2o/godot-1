@@ -1,4 +1,4 @@
-/**************************************************************************/
+﻿/**************************************************************************/
 /*  sprite_frames_editor_plugin.cpp                                       */
 /**************************************************************************/
 /*                         This file is part of:                          */
@@ -811,6 +811,13 @@ void SpriteFramesEditor::_file_load_request(const Vector<String> &p_path, int p_
 	undo_redo->add_do_method(this, "_update_library");
 	undo_redo->add_undo_method(this, "_update_library");
 
+	// AGY PATCH: auto-advance selection to last added frame
+	{
+		int last_pos = p_at_pos == -1 ? fc + count - 1 : p_at_pos + count - 1;
+		selection.clear();
+		selection.push_back(last_pos);
+	}
+
 	undo_redo->commit_action();
 }
 
@@ -901,6 +908,9 @@ void SpriteFramesEditor::_paste_texture(const Ref<Texture2D> &p_texture) {
 
 	undo_redo->add_do_method(this, "_update_library");
 	undo_redo->add_undo_method(this, "_update_library");
+	// AGY PATCH: auto-advance selection to pasted frame
+	selection.clear();
+	selection.push_back(undo_index);
 	undo_redo->commit_action();
 }
 
@@ -1990,6 +2000,12 @@ void SpriteFramesEditor::drop_data_fw(const Point2 &p_point, const Variant &p_da
 				undo_redo->add_undo_method(frames.ptr(), "remove_frame", edited_anim, at_pos == -1 ? frames->get_frame_count(edited_anim) : at_pos);
 				undo_redo->add_do_method(this, "_update_library");
 				undo_redo->add_undo_method(this, "_update_library");
+				// AGY PATCH: auto-advance selection to added frame
+				{
+					int new_pos = at_pos == -1 ? frames->get_frame_count(edited_anim) : at_pos;
+					selection.clear();
+					selection.push_back(new_pos);
+				}
 				undo_redo->commit_action();
 			}
 		}
@@ -2851,3 +2867,4 @@ Ref<ClipboardAnimation> ClipboardAnimation::from_sprite_frames(const Ref<SpriteF
 	}
 	return clipboard_anim;
 }
+
